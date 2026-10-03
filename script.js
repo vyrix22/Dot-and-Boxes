@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 dot.addEventListener('mousedown', (e) => startDrag(e, dot));
                 dot.addEventListener('mouseup', (e) => endDrag(e, dot));
-                dot.addEventListener('touchstart', (e) => startDrag(e, dot));
+                dot.addEventListener('touchstart', (e) => startDrag(e, dot), { passive: false });
                 dot.addEventListener('touchend', (e) => endDrag(e, dot));
 
                 gridContainer.appendChild(dot);
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridContainer.appendChild(currentLine);
 
         gridContainer.addEventListener('mousemove', updateDragLine);
-        gridContainer.addEventListener('touchmove', updateDragLine);
+        gridContainer.addEventListener('touchmove', updateDragLine, { passive: false });
     }
 
     function highlightPotentialConnections(row, col) {
@@ -366,7 +366,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const elementAtTouch = document.elementFromPoint(touch.clientX, touch.clientY);
             if (elementAtTouch && elementAtTouch.classList.contains('dot')) {
                 dot = elementAtTouch;
+                dot = elementAtTouch;
+            } else {
+                dot = null;
             }
+        }
+
+        if (dot === startDot.element) {
+            dot = null;
         }
 
         if (dot && dot.classList && dot.classList.contains('dot')) {
@@ -374,8 +381,8 @@ document.addEventListener('DOMContentLoaded', () => {
             endCol = parseInt(dot.dataset.col);
         } else {
             // Smart Snap: calculate direction and length if they let go off a dot
-            const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
-            const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+            const clientX = (e.clientX !== undefined) ? e.clientX : (e.changedTouches ? e.changedTouches[0].clientX : undefined);
+            const clientY = (e.clientY !== undefined) ? e.clientY : (e.changedTouches ? e.changedTouches[0].clientY : undefined);
             
             if (clientX !== undefined && clientY !== undefined) {
                 const gridContainer = document.querySelector('.grid-container');
