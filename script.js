@@ -355,8 +355,11 @@ document.addEventListener('DOMContentLoaded', () => {
         currentLine.style.boxShadow = pColor.shadow;
     }
 
-    function endDrag(e, dot) {
+        function endDrag(e, dot) {
         if (!isDragging || !startDot) return;
+
+        let endRow = -1;
+        let endCol = -1;
 
         if (e.type === 'touchend' && e.changedTouches) {
             const touch = e.changedTouches[0];
@@ -366,30 +369,73 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        const endRow = parseInt(dot.dataset.row);
-        const endCol = parseInt(dot.dataset.col);
+        if (dot && dot.classList && dot.classList.contains('dot')) {
+            endRow = parseInt(dot.dataset.row);
+            endCol = parseInt(dot.dataset.col);
+        } else {
+            // Smart Snap: calculate direction and length if they let go off a dot
+            const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+            const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+            
+            if (clientX !== undefined && clientY !== undefined) {
+                const gridContainer = document.querySelector('.grid-container');
+                const rect = gridContainer.getBoundingClientRect();
+                const mouseX = clientX - rect.left;
+                const mouseY = clientY - rect.top;
 
-        if (startDot.row !== endRow || startDot.col !== endCol) {
-            const rowDiff = Math.abs(startDot.row - endRow);
-            const colDiff = Math.abs(startDot.col - endCol);
+                const startX = startDot.col * (100 / boardSize.cols) * rect.width / 100;
+                const startY = startDot.row * (100 / boardSize.rows) * rect.height / 100;
 
-            if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
-                let orientation, lineRow, lineCol;
+                const dx = mouseX - startX;
+                const dy = mouseY - startY;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                
+                const cellWidth = rect.width / boardSize.cols;
+                const cellHeight = rect.height / boardSize.rows;
+                const minThreshold = Math.min(cellWidth, cellHeight) * 0.4; // 40% of cell distance
 
-                if (rowDiff === 0) {
-                    orientation = 'horizontal';
-                    lineRow = endRow;
-                    lineCol = Math.min(startDot.col, endCol);
-                } else {
-                    orientation = 'vertical';
-                    lineRow = Math.min(startDot.row, endRow);
-                    lineCol = endCol;
+                if (length > minThreshold) {
+                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                    endRow = startDot.row;
+                    endCol = startDot.col;
+                    
+                    if (angle > -45 && angle <= 45) {
+                        endCol += 1; // right
+                    } else if (angle > 45 && angle <= 135) {
+                        endRow += 1; // down
+                    } else if (angle > 135 || angle <= -135) {
+                        endCol -= 1; // left
+                    } else if (angle > -135 && angle <= -45) {
+                        endRow -= 1; // up
+                    }
                 }
+            }
+        }
 
-                const line = document.querySelector(`.${orientation}-line[data-row="${lineRow}"][data-col="${lineCol}"]`);
+        // Validate and draw if bounds are correct
+        if (endRow >= 0 && endRow <= boardSize.rows && endCol >= 0 && endCol <= boardSize.cols) {
+            if (startDot.row !== endRow || startDot.col !== endCol) {
+                const rowDiff = Math.abs(startDot.row - endRow);
+                const colDiff = Math.abs(startDot.col - endCol);
 
-                if (line && !line.classList.contains('selected')) {
-                    drawLine(line);
+                if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
+                    let orientation, lineRow, lineCol;
+
+                    if (rowDiff === 0) {
+                        orientation = 'horizontal';
+                        lineRow = endRow;
+                        lineCol = Math.min(startDot.col, endCol);
+                    } else {
+                        orientation = 'vertical';
+                        lineRow = Math.min(startDot.row, endRow);
+                        lineCol = endCol;
+                    }
+
+                    const line = document.querySelector('.' + orientation + '-line[data-row="' + lineRow + '"][data-col="' + lineCol + '"]');
+
+                    if (line && !line.classList.contains('selected')) {
+                        drawLine(line);
+                    }
                 }
             }
         }
@@ -810,14 +856,14 @@ document.addEventListener('DOMContentLoaded', () => {
             showHomeScreen();
         });
 
-        document.addEventListener('mouseup', () => {
+        document.addEventListener('mouseup', (e) => {
             if (isDragging) {
-                cleanupDrag();
+                endDrag(e, null);
             }
         });
-        document.addEventListener('touchend', () => {
+        document.addEventListener('touchend', (e) => {
             if (isDragging) {
-                cleanupDrag();
+                endDrag(e, null);
             }
         });
     }
